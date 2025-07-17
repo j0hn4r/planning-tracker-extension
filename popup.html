@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planning Tracker</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <header>
+        <h1>Planning Tracker</h1>
+        <button id="toggleFormBtn" title="Add New Application">[+]</button>
+        <button id="openInWindowBtn" title="Open in Window" style="margin-bottom: 8px;">&#128470; Open in Window</button>
+    </header>
+
+    <form id="addAppForm" style="display: none;">
+        <h3 id="formTitle">Add New Application</h3> <!-- MODIFIED -->
+        <input type="hidden" id="editAppId"> <!-- NEW: To store the ID of the app being edited -->
+        <input type="text" id="appName" placeholder="Memorable Name (e.g., Main St. Ext.)" required>
+        <input type="text" id="appAddress" placeholder="Site Address" required>
+        <input type="text" id="appAuthority" placeholder="Local Authority" required>
+        <input type="text" id="appReference" placeholder="Reference Number">
+        <input type="url" id="appUrl" placeholder="Direct URL to Application" required>
+        <label for="appDueDate">Decision Due Date:</label>
+        <input type="date" id="appDueDate" required>
+        <div class="form-buttons"> <!-- NEW -->
+            <button type="submit" id="saveBtn">Save Application</button>
+            <button type="button" id="cancelBtn" style="display: none;">Cancel</button>
+        </div>
+    </form>
+
+    <hr>
+
+    <div id="appList">
+        <!-- Applications will be dynamically inserted here -->
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
