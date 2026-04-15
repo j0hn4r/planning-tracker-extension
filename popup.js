@@ -69,9 +69,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const div = document.createElement('div');
                 div.className = 'group bg-surface-container-low hover:bg-surface-bright hover:shadow-sm rounded-xl p-4 flex justify-between transition-all flex-col !items-stretch';
                 
-                const { text, className } = getDueDateStatus(app.dueDate);
                 let badgeClass = 'bg-secondary-container text-on-secondary-container';
-                let statusText = text;
+                let statusText = '';
                 
                 if (app.status === 'approved') {
                     badgeClass = 'bg-emerald-100 text-emerald-800 border border-emerald-200';
@@ -80,6 +79,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     badgeClass = 'bg-rose-100 text-rose-800 border border-rose-200';
                     statusText = 'Refused';
                 } else {
+                    const { text, className } = getDueDateStatus(app.dueDate);
+                    statusText = text;
                     if (className === 'status-overdue') badgeClass = 'bg-error-container text-on-error-container';
                     else if (className === 'status-due-soon') badgeClass = 'bg-tertiary-container/20 text-on-tertiary-container';
                 }
