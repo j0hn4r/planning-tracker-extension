@@ -8,6 +8,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const cancelBtn = document.getElementById('cancelBtn');
     const saveBtn = document.getElementById('saveBtn');
     const openInWindowBtn = document.getElementById('openInWindowBtn');
+    const tabActive = document.getElementById('tabActive');
+    const tabDecided = document.getElementById('tabDecided');
+
+    let currentTab = 'active';
 
     // --- Utility Functions ---
     const getDueDateStatus = (dueDateStr) => {
@@ -31,14 +35,14 @@ document.addEventListener('DOMContentLoaded', () => {
         saveBtn.textContent = isEditMode ? 'Save Changes' : 'Save Application';
         cancelBtn.style.display = isEditMode ? 'inline-block' : 'none';
         addAppForm.style.display = 'flex';
-        toggleFormBtn.textContent = '[-]';
+        document.getElementById('toggleFormIcon').textContent = 'remove';
     };
 
     const hideForm = () => {
         addAppForm.reset();
         editAppIdInput.value = '';
         addAppForm.style.display = 'none';
-        toggleFormBtn.textContent = '[+]';
+        document.getElementById('toggleFormIcon').textContent = 'add';
         cancelBtn.style.display = 'none';
         formTitle.textContent = 'Add New Application';
         saveBtn.textContent = 'Save Application';
@@ -47,38 +51,105 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Core Application Logic ---
     const renderApplications = () => {
         chrome.storage.local.get(['applications'], (result) => {
-            const applications = result.applications || [];
+            let applications = result.applications || [];
+            
+            applications = applications.filter(app => {
+                const status = app.status || 'active';
+                if (currentTab === 'active') return status === 'active';
+                return status === 'approved' || status === 'refused';
+            });
+            
             applications.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
             appList.innerHTML = '';
             if (applications.length === 0) {
-                appList.innerHTML = '<p>No applications yet. Click [+] to add one!</p>';
+                appList.innerHTML = '<p class="text-sm text-outline">No applications in this tab.</p>';
                 return;
             }
             applications.forEach(app => {
-                const details = document.createElement('details');
-                const summary = document.createElement('summary');
-                const contentDiv = document.createElement('div');
-                contentDiv.className = 'app-content';
+                const div = document.createElement('div');
+                div.className = 'group bg-surface-container-low hover:bg-surface-bright hover:shadow-sm rounded-xl p-4 flex justify-between transition-all flex-col !items-stretch';
+                
                 const { text, className } = getDueDateStatus(app.dueDate);
-                summary.innerHTML = `${app.name} <span class="due-status ${className}">${text}</span>`;
-                contentDiv.innerHTML = `
-                    <p><strong>Address:</strong> ${app.address}</p>
-                    <p><strong>Reference:</strong> ${app.reference}</p>
-                    <p><strong>Authority:</strong> ${app.authority}</p>
-                    <p><strong>Due Date:</strong> ${app.dueDate}</p>
-                    <p><strong>URL:</strong> <a href="#" class="visit-link" data-url="${app.url}">Open in new tab</a></p>
-                    <div class="app-actions">
-                        <button class="action-button edit-button" data-id="${app.id}">Edit</button>
-                        <button class="action-button delete-button" data-id="${app.id}">Delete</button>
-                    </div>`;
-                details.appendChild(summary);
-                details.appendChild(contentDiv);
-                appList.appendChild(details);
+                let badgeClass = 'bg-secondary-container text-on-secondary-container';
+                let statusText = text;
+                
+                if (app.status === 'approved') {
+                    badgeClass = 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+                    statusText = 'Approved';
+                } else if (app.status === 'refused') {
+                    badgeClass = 'bg-rose-100 text-rose-800 border border-rose-200';
+                    statusText = 'Refused';
+                } else {
+                    if (className === 'status-overdue') badgeClass = 'bg-error-container text-on-error-container';
+                    else if (className === 'status-due-soon') badgeClass = 'bg-tertiary-container/20 text-on-tertiary-container';
+                }
+
+                div.innerHTML = `
+                    <div class="flex flex-col w-full">
+                        <h3 class="text-sm font-bold text-on-surface group-hover:text-surface-tint transition-colors">${app.name}</h3>
+                        <p class="text-[11px] text-on-surface-variant">${app.reference || 'No Ref'} • ${app.authority || 'Unknown'}</p>
+                        <p class="text-[11px] text-on-surface mt-1 truncate">${app.address}</p>
+                        <div class="flex gap-4 mt-2">
+                            <a class="visit-link flex items-center gap-1 text-[10px] font-bold text-outline hover:text-[#0F172A] transition-colors" href="#" data-url="${app.url}">
+                                <span class="visit-link material-symbols-outlined text-[14px]" data-url="${app.url}">open_in_new</span> PORTAL
+                            </a>
+                            ${app.commsUrl ? `<a class="visit-link flex items-center gap-1 text-[10px] font-bold text-outline hover:text-[#0F172A] transition-colors" href="#" data-url="${app.commsUrl}">
+                                <span class="visit-link material-symbols-outlined text-[14px]" data-url="${app.commsUrl}">forum</span> COMMS
+                            </a>` : ''}
+                            <button class="edit-button flex items-center gap-1 text-[10px] font-bold text-outline hover:text-[#0F172A] transition-colors" data-id="${app.id}">
+                                <span class="edit-button material-symbols-outlined text-[14px]" data-id="${app.id}">edit</span> EDIT
+                            </button>
+                            <button class="delete-button flex items-center gap-1 text-[10px] font-bold text-error hover:text-red-700 transition-colors" data-id="${app.id}">
+                                <span class="delete-button material-symbols-outlined text-[14px]" data-id="${app.id}">delete</span> DELETE
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 justify-between mt-1 border-t border-outline-variant/10 pt-2">
+                        <span class="px-3 py-1 rounded-full text-[10px] font-semibold ${badgeClass}">
+                            ${statusText}
+                        </span>
+                        ${(app.status || 'active') === 'active' ? `
+                        <div class="flex gap-2">
+                            <button class="status-action flex items-center gap-1 px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold transition-colors" data-id="${app.id}" data-action="approved">
+                                <span class="status-action material-symbols-outlined text-[12px]" data-id="${app.id}" data-action="approved">check</span> Approve
+                            </button>
+                            <button class="status-action flex items-center gap-1 px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded text-[10px] font-bold transition-colors" data-id="${app.id}" data-action="refused">
+                                <span class="status-action material-symbols-outlined text-[12px]" data-id="${app.id}" data-action="refused">close</span> Refuse
+                            </button>
+                        </div>
+                        ` : `
+                        <div class="flex gap-2">
+                            <button class="status-action flex items-center gap-1 px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-bold transition-colors" data-id="${app.id}" data-action="active">
+                                <span class="status-action material-symbols-outlined text-[12px]" data-id="${app.id}" data-action="active">undo</span> Move to Active
+                            </button>
+                        </div>
+                        `}
+                    </div>
+                `;
+                appList.appendChild(div);
             });
         });
     };
 
     // --- Event Listeners ---
+    if (tabActive) {
+        tabActive.addEventListener('click', () => {
+            currentTab = 'active';
+            tabActive.className = 'text-[#0f172a] border-b-2 border-[#0f172a] py-2 transition-colors';
+            tabDecided.className = 'text-[#64748b] hover:text-[#0f172a] py-2 border-b-2 border-transparent transition-colors';
+            renderApplications();
+        });
+    }
+
+    if (tabDecided) {
+        tabDecided.addEventListener('click', () => {
+            currentTab = 'decided';
+            tabDecided.className = 'text-[#0f172a] border-b-2 border-[#0f172a] py-2 transition-colors';
+            tabActive.className = 'text-[#64748b] hover:text-[#0f172a] py-2 border-b-2 border-transparent transition-colors';
+            renderApplications();
+        });
+    }
+
     toggleFormBtn.addEventListener('click', () => {
         addAppForm.style.display === 'none' ? showForm() : hideForm();
     });
@@ -93,7 +164,9 @@ document.addEventListener('DOMContentLoaded', () => {
             authority: document.getElementById('appAuthority').value,
             reference: document.getElementById('appReference').value,
             url: document.getElementById('appUrl').value,
-            dueDate: document.getElementById('appDueDate').value
+            commsUrl: document.getElementById('appCommsUrl').value,
+            dueDate: document.getElementById('appDueDate').value,
+            status: document.getElementById('appStatus').value
         };
         
         chrome.storage.local.get(['applications'], (result) => {
@@ -143,11 +216,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.getElementById('appName').value = appToEdit.name;
                     document.getElementById('appAddress').value = appToEdit.address;
                     document.getElementById('appAuthority').value = appToEdit.authority;
-                    document.getElementById('appReference').value = appToEdit.reference;
-                    document.getElementById('appUrl').value = appToEdit.url;
-                    document.getElementById('appDueDate').value = appToEdit.dueDate;
+                    document.getElementById('appReference').value = appToEdit.reference || '';
+                    document.getElementById('appUrl').value = appToEdit.url || '';
+                    document.getElementById('appCommsUrl').value = appToEdit.commsUrl || '';
+                    document.getElementById('appDueDate').value = appToEdit.dueDate || '';
+                    document.getElementById('appStatus').value = appToEdit.status || 'active';
                     showForm(true); // Show form in edit mode
                 }
+            });
+        }
+
+        // Status Action Click
+        if (target.classList.contains('status-action')) {
+            const action = target.getAttribute('data-action');
+            chrome.storage.local.get(['applications'], (result) => {
+                let applications = result.applications || [];
+                applications = applications.map(app => 
+                    app.id === id ? { ...app, status: action } : app
+                );
+                chrome.storage.local.set({ applications }, renderApplications);
             });
         }
     });
@@ -158,8 +245,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (openInWindowBtn) {
         // Only show the button if we're in a popup (not a standalone window)
         if (window.location.search.includes('standalone')) {
-            openInWindowBtn.style.display = 'none';
+            openInWindowBtn.classList.add('hidden');
+            openInWindowBtn.classList.remove('flex');
         } else {
+            openInWindowBtn.classList.remove('hidden');
+            openInWindowBtn.classList.add('flex');
             openInWindowBtn.addEventListener('click', () => {
                 chrome.windows.create({
                     url: chrome.runtime.getURL('popup.html?standalone'),
